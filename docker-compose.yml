@@ -1,0 +1,92 @@
+
+version: '3.8'
+
+services:
+
+  webserver:
+    image: nginx:alpine
+    container_name: ${PROJECT_NAME}-webserver
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./backend:/var/www/backend
+      - ./frontend:/var/www/frontend
+      - ./nginx/conf.d/:/etc/nginx/conf.d/
+    depends_on:
+      - backend
+      - frontend
+      - db
+    networks:
+      - laravel_next_networks
+
+  db:
+    image: mysql:8.0
+    container_name: ${PROJECT_NAME}-db
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    networks:
+      - laravel_next_networks
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ${PROJECT_NAME}-phpmyadmin
+    restart: always
+    environment:
+      - PMA_HOST=${PMA_HOST}
+      - PMA_USER=${PMA_USER}
+      - PMA_PASSWORD=${PMA_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "8080:80"
+    links:
+      - db:db
+    depends_on:
+      - db
+    networks:
+      - laravel_next_networks
+
+  backend:
+    build:
+      dockerfile: Dockerfile.backend
+    command: 'php artisan serve --host=0.0.0.0'
+    container_name: ${PROJECT_NAME}-backend
+    volumes:
+      - ./backend:/var/www/backend
+      - /var/www/backend/vendor
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - laravel_next_networks
+
+  frontend:
+    container_name: ${PROJECT_NAME}-frontend
+    build:
+      dockerfile: Dockerfile.frontend
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      NEXT_PUBLIC_API_HOST: ${NEXT_PUBLIC_API_HOST}
+    volumes:
+      - ./frontend:/var/www/frontend
+      - /var/www/frontend/node_modules
+      - /var/www/frontend/.next
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    networks:
+      - laravel_next_networks
+networks:
+  laravel_next_networks:

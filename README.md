@@ -1,2 +1,1 @@
 # laravel-next
-# laravel-next
